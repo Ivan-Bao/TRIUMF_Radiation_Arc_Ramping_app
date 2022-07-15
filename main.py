@@ -31,7 +31,6 @@ from mcculw.enums import InterfaceType, DigitalIODirection, DigitalPortType
 from mcculw.ul import ULError
 from mcculw.device_info import DaqDeviceInfo, DioInfo
 
-
 try:
     from ui_examples_util import UIExample, show_ul_error
 except ImportError:
@@ -44,15 +43,13 @@ ramp_target_voltage = 2
 ramp_start_voltage = 0
 
 
-
 class DAQ_AO1_Ramping(UIExample):
-
 
     def __init__(self, resolution, voltage_range, analog_channel, start_voltage, target_voltage, master):
         super(DAQ_AO1_Ramping, self).__init__(master)
         # Declaring a bunch of variables
 
-        self.ramp_up_to = None
+        self.ramp_up_to = None  # Initialize all the variables, as suggested by Pycharm
         self.down_to_output = None
         self.ramp_down_to = None
         self.ramp_down_to_input_box = None
@@ -62,7 +59,7 @@ class DAQ_AO1_Ramping(UIExample):
         self.start_voltage_text = None
         self.Ramp_rate_input_box = None
         self.End_voltage_input_box = None
-        self.Start_voltage_input_box = None #Front end displays and text entry boxes
+        self.Start_voltage_input_box = None
         self.device_info = None
         self.board_num = 0
         self.daqo_info = " "
@@ -79,14 +76,16 @@ class DAQ_AO1_Ramping(UIExample):
         self.board_ramping_analog_channel = analog_channel
         self.ramp_start_voltage = start_voltage
         self.ramp_target_voltage = target_voltage
-        self.board_ground_voltage = int(self.board_resolution / 2) # Mapping the desired voltage (start, end,
+        self.board_ground_voltage = int(self.board_resolution / 2)  # Mapping the desired voltage (start, end,
         # and ground reference) to the 16-bit analog output pin
-        self.start_analog_output = int((self.board_resolution / 2) * (self.ramp_start_voltage / self.board_voltage_range) + self.board_ground_voltage)
-        self.target_analog_output = int((self.board_resolution / 2) * (self.ramp_target_voltage / self.board_voltage_range) + self.board_ground_voltage)
 
-
-        self.step_rate = 0.01 #volts/second for 0-10V ramge
-        self.step_delay = (self.board_voltage_range/self.step_rate)/(self.board_resolution / 2)
+        # These next 4 lines could be unnecessary, might replace with = None later. These variables are computed again when initializing the board
+        self.start_analog_output = int((self.board_resolution / 2) * (
+                self.ramp_start_voltage / self.board_voltage_range) + self.board_ground_voltage)
+        self.target_analog_output = int((self.board_resolution / 2) * (
+                self.ramp_target_voltage / self.board_voltage_range) + self.board_ground_voltage)
+        self.step_rate = 0.01  # volts/second for 0-10V ramge
+        self.step_delay = (self.board_voltage_range / self.step_rate) / (self.board_resolution / 2)
 
         self.current_voltage = 0.0
         self.current_step_count = 0
@@ -95,7 +94,7 @@ class DAQ_AO1_Ramping(UIExample):
 
         self.create_widgets()
 
-    def discover_devices(self): # initializing the buttons after device is found
+    def discover_devices(self):  # initializing the buttons after device is found, make them all un-greyed
         self.inventory = ul.get_daq_device_inventory(InterfaceType.ANY)
 
         if len(self.inventory) > 0:
@@ -132,25 +131,25 @@ class DAQ_AO1_Ramping(UIExample):
             # self.volt_switch_button["state"] = "disabled"
             # Beginning of change June 9, 2022
 
-
-    def initiate_board(self): #initalize the connected board, compute and map the voltage values, set pin voltage to 0,
-        # zero all the variables and get the ramping threads ready
+    def initiate_board(
+            self):  # initalize the connected board, compute and map the voltage values, set pin voltage to 0,
+        # zero all the thread control variables and get the ramping threads ready
         self.ramping_up.clear()
         self.ramping_down.clear()
         ul.a_out(self.board_num, self.board_ramping_analog_channel, self.board_voltage_range,
                  self.board_ground_voltage)  # Reset analog output to ground voltage
 
-        ul.d_config_port(self.board_num, DigitalPortType.AUXPORT, DigitalIODirection.IN) #configure the digital ports to input mode
-
-        # self.canvas.itemconfigure(self.DAQ_Info_text, text=self.dio_info.num_ports)
+        ul.d_config_port(self.board_num, DigitalPortType.AUXPORT,
+                         DigitalIODirection.IN)  # configure the digital ports to input mode
 
         # configure the digital ports for reading the pause ramping & hold signal
 
-        #compute the start and end voltage, and the ramp rate in terms of analog output resolution, based on the user input in the textboxes
+        # compute the start and end voltage, and the ramp rate in terms of analog output resolution, based on the user input in the textboxes
         self.ramp_start_voltage = self.Start_voltage_input_box.get()
         self.ramp_target_voltage = self.End_voltage_input_box.get()
         self.step_rate = self.Ramp_rate_input_box.get()
-        #If the text boxes are empty, then replace with 0 as placeholders
+
+        # If the text boxes are empty, then replace with 0 as placeholders
         if self.ramp_start_voltage == '':
             self.ramp_start_voltage = 0.0
         else:
@@ -162,28 +161,37 @@ class DAQ_AO1_Ramping(UIExample):
             self.ramp_target_voltage = float(self.ramp_target_voltage)
 
         if self.step_rate == '':
-            self.step_rate = 0.00001 / (10/self.board_voltage_range)
+            self.step_rate = 0.00001 / (10 / self.board_voltage_range)
         else:
-            self.step_rate = float(self.step_rate) / (10/self.board_voltage_range)
+            self.step_rate = float(self.step_rate) / (10 / self.board_voltage_range)
 
         if self.ramp_start_voltage > self.board_voltage_range:
             self.ramp_start_voltage = self.board_voltage_range
         if self.ramp_target_voltage > self.board_voltage_range:
             self.ramp_target_voltage = self.board_voltage_range
+
+        # zero the step counts
         self.current_voltage = 0.0
         self.current_step_count = 0
-        self.start_analog_output = int((self.board_resolution / 2) * (self.ramp_start_voltage / self.board_voltage_range) + self.board_ground_voltage)
-        self.target_analog_output = int((self.board_resolution / 2) * (self.ramp_target_voltage / self.board_voltage_range) + self.board_ground_voltage)
+
+        # Compute the stepping rate and range based on user input and display the results as on-screen message
+        self.start_analog_output = int((self.board_resolution / 2) * (
+                self.ramp_start_voltage / self.board_voltage_range) + self.board_ground_voltage)
+        self.target_analog_output = int((self.board_resolution / 2) * (
+                self.ramp_target_voltage / self.board_voltage_range) + self.board_ground_voltage)
         self.restart_step_count = self.start_analog_output
         self.current_step_count = self.start_analog_output
-        self.step_delay = (self.board_voltage_range/self.step_rate)/(self.board_resolution / 2)
-        self.canvas.itemconfigure(self.DAQ_Info_text, text="DAQ initiated:\nStarting voltage " + str(self.ramp_start_voltage)
-                                                           + " V\nFinal voltage " + str(self.ramp_target_voltage) + " V\nRamp rate " + str(self.step_rate) + " V/s")
-        self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nAnalog Output at 0V\nReady for ramping up")
-
+        self.step_delay = (self.board_voltage_range / self.step_rate) / (self.board_resolution / 2)
+        self.canvas.itemconfigure(self.DAQ_Info_text,
+                                  text="DAQ initiated:\nStarting voltage " + str(self.ramp_start_voltage)
+                                       + " V\nFinal voltage " + str(self.ramp_target_voltage) + " V\nRamp rate " + str(
+                                      self.step_rate) + " V/s")
+        self.canvas.itemconfigure(self.DAQ_State_text,
+                                  text="Current Status: \nAnalog Output at 0V\nReady for ramping up")
 
     def begin_ramping_up(self):
-        if hasattr(self, "ramp_up_thread"):
+        if hasattr(self,
+                   "ramp_up_thread"):  # Execute the start ramping code regardless whether the ramp up thread exists
             if not self.ramp_up_thread.is_alive():
                 self.ramping_up.set()
                 self.ramping_down.clear()
@@ -191,21 +199,22 @@ class DAQ_AO1_Ramping(UIExample):
                 if self.ramping_up.isSet():
                     self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping up\n" + str(
                         round(self.current_voltage, 3)) + " V")
+
+                # disable all other buttons except "pause" when a ramp is happening.
                 self.begin_ramping_up_button["state"] = "disabled"
                 self.ramp_down_button["state"] = "disabled"
                 self.quick_ramp_down_button["state"] = "disabled"
                 self.initiate_board_button["state"] = "disabled"
                 self.quick_ramp_down_to_button["state"] = "disabled"
                 self.quick_ramp_up_to_button["state"] = "disabled"
-                self.restart_step_count = self.current_step_count
-                self.ramp_up_thread = threading.Thread(target=self.ramp_up_loop)
+                self.restart_step_count = self.current_step_count  # keep track of where the ramp started/stopped
+
+                self.ramp_up_thread = threading.Thread(target=self.ramp_up_loop)  # begin the normal ramping up thread
                 self.ramp_up_thread.start()
-                # self.pause_read_thread = threading.Thread(target = self.read_pause_signal_loop)
-                # self.pause_read_thread.start()
+
         else:
             self.ramping_up.set()
             self.ramping_down.clear()
-            # self.current_voltage = 0.0
             if self.ramping_up.isSet():
                 self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping up\n" + str(
                     round(self.current_voltage, 3)) + " V")
@@ -216,34 +225,35 @@ class DAQ_AO1_Ramping(UIExample):
             self.quick_ramp_down_to_button["state"] = "disabled"
             self.quick_ramp_up_to_button["state"] = "disabled"
             self.restart_step_count = self.current_step_count
-            self.ramp_up_thread = threading.Thread(target=self.ramp_up_loop)
+
+            self.ramp_up_thread = threading.Thread(target=self.ramp_up_loop)  # begin the normal ramping up thread
             self.ramp_up_thread.start()
-
-
 
     def ramp_up_loop(self):
 
         loopCount = 0
-        for i in range (self.restart_step_count, self.target_analog_output):
+        for i in range(self.restart_step_count, self.target_analog_output):
             if not self.ramping_up.isSet():
                 self.canvas.itemconfigure(self.DAQ_State_text,
                                           text="Current Status: \nRamping paused\n holding at " + str(
                                               round(self.current_voltage, 3)) + " V")
 
-
                 break
             ul.a_out(self.board_num, board_ramping_analog_channel, board_voltage_range, i)
-            self.current_step_count = i #keep track of the 16-bit count
-            self.current_voltage = self.board_voltage_range*((i - self.board_ground_voltage)/(self.board_resolution - self.board_ground_voltage))
-            loopCount = loopCount + 1
-            if loopCount%20 == 0:
-                self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping up\n" + str(round(self.current_voltage, 3)) + " V")
+            self.current_step_count = i  # keep track of the 16-bit count
+            self.current_voltage = self.board_voltage_range * (
+                    (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
+            loopCount = loopCount + 1  # used for the display counter, so the displayed voltage value doesn't fluctuate too fast
+            if loopCount % 20 == 0:
+                self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping up\n" + str(
+                    round(self.current_voltage, 3)) + " V")
 
-            time.sleep(self.step_delay - (time.time() % self.step_delay)) #self synchronizing time delay
+            time.sleep(self.step_delay - (time.time() % self.step_delay))  # self synchronizing time delay
 
-        self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping up completed,\n holding at " + str(
-            round(self.current_voltage, 3)) + " V")
-        self.begin_ramping_up_button["state"] = "normal" #enable all the buttons when the ramping ends
+        self.canvas.itemconfigure(self.DAQ_State_text,
+                                  text="Current Status: \nRamping up completed,\n holding at " + str(
+                                      round(self.current_voltage, 3)) + " V")
+        self.begin_ramping_up_button["state"] = "normal"  # enable all the buttons when the ramping ends
         self.ramp_down_button["state"] = "normal"
         self.quick_ramp_down_button["state"] = "normal"
         self.quick_ramp_down_to_button["state"] = "normal"
@@ -251,41 +261,37 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_up_to_button["state"] = "normal"
         sys.exit()  # exit thread when the ramp is done or asked to stop
 
-    def read_pause_signal_loop(self):
+    def read_pause_signal_loop(self):  # Might not be in use, maybe delete later. This is the triggering pin program, that pauses the ramping when DIO1 is connected to high
+                                        # or low I don't remember --- Ivan
         while True:
             if ul.d_in(self.board_num, DigitalPortType.AUXPORT) == 254:
-                self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping paused\n holding at " + str(round(self.current_voltage, 3)) + " V")
+                self.canvas.itemconfigure(self.DAQ_State_text,
+                                          text="Current Status: \nRamping paused\n holding at " + str(
+                                              round(self.current_voltage, 3)) + " V")
                 self.stop_ramping()
                 break
         sys.exit()
 
     def stop_ramping(self):
-        self.ramping_up.clear()  #change the ramping boolean to false, thus the ramping stops and holds at current voltage
+        self.ramping_up.clear()  # change the ramping boolean to false, thus the ramping stops and holds at current voltage
         self.ramping_down.clear()
-
-
-
 
     def begin_ramping_down(self):
 
-
-        # if self.ramp_up_thread.is_alive(): #Check if there's an existing ramping up thread running, if so then don't start another
-        #     self.stop_ramping()
-        #     self.ramping_up.clear()
-        #     time.sleep(1)
-        #     self.ramp_up_thread.join()
-
-
-        if hasattr(self, "ramp_down_thread"): #Check if the ramping down thread is already made, to avoid "no attribute" error
+        if hasattr(self,
+                   "ramp_down_thread"):  # Check if the ramping down thread is already made, to avoid "no attribute" error
+                                        # Consider remove this logic in the future as the program should not require such
+                                        # safeguard mechanism
             if not self.ramp_down_thread.is_alive():
                 self.ramping_up.clear()
                 self.ramping_down.set()
                 if self.ramping_down.isSet():
-                    self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down\n" + str(round(self.current_voltage, 3)) + " V")
+                    self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down\n" + str(
+                        round(self.current_voltage, 3)) + " V")
                 self.restart_step_count = self.current_step_count
                 self.ramp_down_thread = threading.Thread(target=self.ramp_down_loop)
                 self.ramp_down_thread.start()
-        else: #If the ramping down thread is not made, then just proceed to start the thread
+        else:  # If the ramping down thread is not made, then just proceed to start the thread
             self.ramping_up.clear()
             self.ramping_down.set()
             if self.ramping_down.isSet():
@@ -304,14 +310,13 @@ class DAQ_AO1_Ramping(UIExample):
 
     def ramp_down_loop(self):
 
-
         loopCount = 0
         for i in range(self.restart_step_count, self.start_analog_output, -1):
             ul.a_out(self.board_num, board_ramping_analog_channel, board_voltage_range, i)
             self.current_voltage = self.board_voltage_range * (
-                        (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
+                    (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
             loopCount = loopCount + 1
-            self.current_step_count = i #keep track of the 16-bit count
+            self.current_step_count = i  # keep track of the 16-bit count
             if loopCount % 20 == 0:
                 self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down\n" + str(
                     round(self.current_voltage, 3)) + " V")
@@ -322,8 +327,8 @@ class DAQ_AO1_Ramping(UIExample):
                                               round(self.current_voltage, 3)) + " V")
                 break
         self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down complete:\n" + str(
-                    round(self.current_voltage, 3)) + " V")
-        self.begin_ramping_up_button["state"] = "normal"
+            round(self.current_voltage, 3)) + " V")
+        self.begin_ramping_up_button["state"] = "normal"  # enable all the buttons when the ramping ends
         self.ramp_down_button["state"] = "normal"
         self.quick_ramp_down_button["state"] = "normal"
         self.quick_ramp_down_to_button["state"] = "normal"
@@ -340,14 +345,15 @@ class DAQ_AO1_Ramping(UIExample):
         self.ramping_up.clear()
         self.ramping_down.set()
         if self.ramping_down.isSet():
-            self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down\n" + str(round(self.current_voltage, 3)) + " V")
+            self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down\n" + str(
+                round(self.current_voltage, 3)) + " V")
 
         self.quick_ramp_down_thread = threading.Thread(target=self.quick_ramp_down_loop)
         self.quick_ramp_down_thread.start()
 
         self.begin_ramping_up_button["state"] = "disabled"
         self.ramp_down_button["state"] = "disabled"
-        self.stop_ramping_button["state"] = "normal"
+        self.stop_ramping_button["state"] = "normal" #stop ramping button should always be available to pause the ramp
         self.quick_ramp_down_button["state"] = "disabled"
         self.quick_ramp_down_to_button["state"] = "disabled"
         self.quick_ramp_up_to_button["state"] = "disabled"
@@ -355,7 +361,7 @@ class DAQ_AO1_Ramping(UIExample):
 
     def quick_ramp_down_loop(self):
 
-        self.short_step_delay = 1/(self.current_step_count)
+        self.short_step_delay = 1 / (self.current_step_count)
 
         loopCount = 0
         rate = int(round(self.current_voltage * -4))
@@ -364,7 +370,7 @@ class DAQ_AO1_Ramping(UIExample):
         for i in range(self.current_step_count, self.board_ground_voltage, rate):
             ul.a_out(self.board_num, board_ramping_analog_channel, board_voltage_range, i)
             self.current_voltage = self.board_voltage_range * (
-                        (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
+                    (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
             loopCount = loopCount + 1
             self.current_step_count = i
             if loopCount % 20 == 0:
@@ -378,8 +384,9 @@ class DAQ_AO1_Ramping(UIExample):
                                               round(self.current_voltage, 3)) + " V")
                 break
         self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down complete:\n" + str(
-                    round(self.current_voltage, 3)) + " V")
-        self.begin_ramping_up_button["state"] = "normal"
+            round(self.current_voltage, 3)) + " V")
+
+        self.begin_ramping_up_button["state"] = "normal"  # enable all the buttons when the ramping ends
         self.ramp_down_button["state"] = "normal"
         self.stop_ramping_button["state"] = "normal"
         self.quick_ramp_down_button["state"] = "normal"
@@ -387,7 +394,6 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_up_to_button["state"] = "normal"
         self.initiate_board_button["state"] = "normal"
         sys.exit()
-
 
     def quick_ramp_down_to(self):
         # if self.ramp_up_thread.is_alive():
@@ -406,7 +412,8 @@ class DAQ_AO1_Ramping(UIExample):
         self.ramping_up.clear()
         self.ramping_down.set()
         if self.ramping_down.isSet():
-            self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down\n" + str(round(self.current_voltage, 3)) + " V")
+            self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down\n" + str(
+                round(self.current_voltage, 3)) + " V")
 
         self.quick_ramp_down_to_thread = threading.Thread(target=self.quick_ramp_down_to_loop)
         self.quick_ramp_down_to_thread.start()
@@ -442,7 +449,7 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_up_to_thread = threading.Thread(target=self.quick_ramp_up_to_loop)
         self.quick_ramp_up_to_thread.start()
 
-        self.begin_ramping_up_button["state"] = "disabled"
+        self.begin_ramping_up_button["state"] = "disabled" #  disable all the buttons except the pausing button to allow
         self.ramp_down_button["state"] = "disabled"
         self.stop_ramping_button["state"] = "normal"
         self.quick_ramp_down_button["state"] = "disabled"
@@ -450,19 +457,19 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_up_to_button["state"] = "disabled"
         self.initiate_board_button["state"] = "disabled"
 
-    def quick_ramp_down_to_loop(self):
+    def quick_ramp_down_to_loop(self): #the loop that ramps the AO1 voltage down to a user set value at a fairly fast rate
 
-        self.short_step_delay = 1/(self.current_step_count)
+        self.short_step_delay = 1 / (self.current_step_count) #computing the loop delays and where the loop ends
         self.down_to_output = int((self.board_resolution / 2) * (
-                    self.ramp_down_to / self.board_voltage_range) + self.board_ground_voltage)
+                self.ramp_down_to / self.board_voltage_range) + self.board_ground_voltage)
         loopCount = 0
-        rate = int(round(self.current_voltage * -1))
+        rate = int(round(self.current_voltage * -1)) # negative rate for ramping down
         if rate == 0:
             rate = -1
         for i in range(self.current_step_count, self.down_to_output, rate):
             ul.a_out(self.board_num, board_ramping_analog_channel, board_voltage_range, i)
             self.current_voltage = self.board_voltage_range * (
-                        (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
+                    (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
             loopCount = loopCount + 1
             self.current_step_count = i
             if loopCount % 20 == 0:
@@ -476,8 +483,9 @@ class DAQ_AO1_Ramping(UIExample):
                                               round(self.current_voltage, 3)) + " V")
                 break
         self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down complete:\n" + str(
-                    round(self.current_voltage, 3)) + " V")
-        self.begin_ramping_up_button["state"] = "normal"
+            round(self.current_voltage, 3)) + " V")
+
+        self.begin_ramping_up_button["state"] = "normal"  # enable all the buttons when the ramping ends
         self.ramp_down_button["state"] = "normal"
         self.stop_ramping_button["state"] = "normal"
         self.quick_ramp_down_button["state"] = "normal"
@@ -486,11 +494,11 @@ class DAQ_AO1_Ramping(UIExample):
         self.initiate_board_button["state"] = "normal"
         sys.exit()
 
-    def quick_ramp_up_to_loop(self):
+    def quick_ramp_up_to_loop(self): #essentially the same structure as above except the rate is now positive
 
-        self.short_step_delay = 1/(self.current_step_count)
+        self.short_step_delay = 1 / (self.current_step_count)
         self.up_to_output = int((self.board_resolution / 2) * (
-                    self.ramp_up_to / self.board_voltage_range) + self.board_ground_voltage)
+                self.ramp_up_to / self.board_voltage_range) + self.board_ground_voltage)
         loopCount = 0
         rate = int(round(self.current_voltage * 4))
         if rate == 0:
@@ -498,7 +506,7 @@ class DAQ_AO1_Ramping(UIExample):
         for i in range(self.current_step_count, self.up_to_output, rate):
             ul.a_out(self.board_num, board_ramping_analog_channel, board_voltage_range, i)
             self.current_voltage = self.board_voltage_range * (
-                        (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
+                    (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
             loopCount = loopCount + 1
             self.current_step_count = i
             if loopCount % 20 == 0:
@@ -512,8 +520,8 @@ class DAQ_AO1_Ramping(UIExample):
                                               round(self.current_voltage, 3)) + " V")
                 break
         self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping up complete:\n" + str(
-                    round(self.current_voltage, 3)) + " V")
-        self.begin_ramping_up_button["state"] = "normal"
+            round(self.current_voltage, 3)) + " V")
+        self.begin_ramping_up_button["state"] = "normal"  # enable all the buttons when the ramping ends
         self.ramp_down_button["state"] = "normal"
         self.stop_ramping_button["state"] = "normal"
         self.quick_ramp_down_button["state"] = "normal"
@@ -522,14 +530,13 @@ class DAQ_AO1_Ramping(UIExample):
         self.initiate_board_button["state"] = "normal"
         sys.exit()
 
-
     def quit_program(self):
-        self.ramping_up.clear()
+        self.ramping_up.clear()  #clear all the ramping state variables, join the threads and exit the program
         self.ramping_down.clear()
         self.ramp_up_thread.join()
         self.pause_read_thread.join()
         sys.exit()
-            # End of change June 9, 2022
+
 
     def selected_device_changed(self, *args):  # @UnusedVariable
         selected_index = self.devices_combobox.current()
@@ -555,7 +562,7 @@ class DAQ_AO1_Ramping(UIExample):
             self.device_info = DaqDeviceInfo(self.board_num)
             self.device_created = True
 
-    def create_widgets(self):
+    def create_widgets(self): #Frontend of the program, making buttons, input boxes, etc
         '''Create the tkinter UI'''
         main_frame = tk.Frame(self, height=300, width=300)
         main_frame.pack(fill=tk.X, anchor=tk.NW)
@@ -609,7 +616,7 @@ class DAQ_AO1_Ramping(UIExample):
         button_frame = tk.Frame(self)
         button_frame.pack(fill=tk.X, side=tk.RIGHT, anchor=tk.SE)
 
-        self.quick_ramp_up_to_button = tk.Button(results_group)
+        self.quick_ramp_up_to_button = tk.Button(results_group)  #standard template for making a button and specify where it goes
         self.quick_ramp_up_to_button["text"] = "Quick Ramp Up to"
         self.quick_ramp_up_to_button["command"] = self.quick_ramp_up_to
         self.quick_ramp_up_to_button["state"] = "disabled"
@@ -659,7 +666,7 @@ class DAQ_AO1_Ramping(UIExample):
         quit_button["command"] = sys.exit
         quit_button.grid(row=0, column=1, padx=3, pady=3)
 
-        self.canvas = tk.Canvas(main_frame, width=400, height=210, bg="ivory3")
+        self.canvas = tk.Canvas(main_frame, width=400, height=210, bg="ivory3") #A canvas for displaying all sorts of text messages and buttons
 
         self.Start_voltage_input_box = tk.Entry(main_frame)
         self.canvas.create_window(80, 30, window=self.Start_voltage_input_box)
@@ -668,7 +675,7 @@ class DAQ_AO1_Ramping(UIExample):
         self.Ramp_rate_input_box = tk.Entry(main_frame)
         self.canvas.create_window(80, 90, window=self.Ramp_rate_input_box)
 
-        # self.bottom_canvas = tk.Canvas(main_frame, width=400, height=200, bg="ivory3")
+
         self.ramp_down_to_input_box = tk.Entry(results_group, width=4)
         self.ramp_down_to_input_box.place(x=205, y=245)
         self.ramp_up_to_input_box = tk.Entry(results_group, width=4)
@@ -677,24 +684,25 @@ class DAQ_AO1_Ramping(UIExample):
         self.ramp_down_to_volt_text.place(x=235, y=243)
         self.ramp_up_to_volt_text = tk.Label(results_group, text="Volts")
         self.ramp_up_to_volt_text.place(x=235, y=122)
-        # self.bottom_canvas.create_window(80, 15, window=self.ramp_down_to_input_box)
-        # self.bottom_canvas.place(x=20, y=200)
+
 
         self.start_voltage_text = self.canvas.create_text(230, 30, text="Starting Voltage (0-10V)", fill="black",
-                                                     font=('Helvetica 11'))
+                                                          font=('Helvetica 11'))
         self.end_voltage_text = self.canvas.create_text(220, 60, text="Final Voltage (0-10V)", fill="black",
-                                                     font=('Helvetica 11'))
-        self.ramp_rate_voltage_text = self.canvas.create_text(250, 100, text="Ramp Rate (V/s, DAQ output)\n(Max 0.1V/s)", fill="black",
-                                                     font=('Helvetica 11'))
+                                                        font=('Helvetica 11'))
+        self.ramp_rate_voltage_text = self.canvas.create_text(250, 100,
+                                                              text="Ramp Rate (V/s, DAQ output)\n(Max 0.1V/s)",
+                                                              fill="black",
+                                                              font=('Helvetica 11'))
         self.DAQ_Info_text = self.canvas.create_text(80, 140, text=" ", fill="black",
                                                      font=('Helvetica 11'))
         self.DAQ_State_text = self.canvas.create_text(250, 140, text=" ", fill="black",
-                                                     font=('Helvetica 11'))
+                                                      font=('Helvetica 11'))
         self.canvas.pack()
-
 
 
 # Start the example if this module is being run
 if __name__ == "__main__":
     # Start the example
-    DAQ_AO1_Ramping(board_resolution, board_voltage_range, board_ramping_analog_channel, ramp_start_voltage, ramp_target_voltage, master=tk.Tk()).mainloop()
+    DAQ_AO1_Ramping(board_resolution, board_voltage_range, board_ramping_analog_channel, ramp_start_voltage,
+                    ramp_target_voltage, master=tk.Tk()).mainloop()
