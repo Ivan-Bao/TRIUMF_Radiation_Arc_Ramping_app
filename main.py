@@ -652,7 +652,7 @@ class DAQ_AO1_Ramping(UIExample):
         self.canvas.pack()
 
 
-# Start the example if this module is being run
+
 if __name__ == "__main__":
     # Start the example
     DAQ_AO1_Ramping(board_resolution, board_voltage_range, board_ramping_analog_channel, ramp_start_voltage,
