@@ -18,18 +18,15 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 import threading
-
 import time
-from builtins import *  # @UnusedWildImport
-
 import tkinter as tk
+from builtins import *  # @UnusedWildImport
 from tkinter import StringVar
 from tkinter.ttk import Combobox  # @UnresolvedImport
 
 from mcculw import ul
-from mcculw.enums import InterfaceType, DigitalIODirection, DigitalPortType
-from mcculw.ul import ULError
 from mcculw.device_info import DaqDeviceInfo, DioInfo
+from mcculw.enums import InterfaceType, DigitalIODirection, DigitalPortType
 
 try:
     from ui_examples_util import UIExample, show_ul_error
@@ -485,7 +482,6 @@ class DAQ_AO1_Ramping(UIExample):
         self.ramping_up.clear()  #clear all the ramping state variables, join the threads and exit the program
         self.ramping_down.clear()
         self.ramp_up_thread.join()
-        self.pause_read_thread.join()
         sys.exit()
 
 
@@ -530,7 +526,7 @@ class DAQ_AO1_Ramping(UIExample):
 
         results_group = tk.LabelFrame(self, height=300, width=200, text="Discovered Devices")
         results_group.pack(fill=tk.X, anchor=tk.NW, padx=3, pady=3)
-        results_group.pack_propagate(0)
+        results_group.pack_propagate(False)
 
         self.selected_device_textvar = StringVar()
         self.selected_device_textvar.trace('w', self.selected_device_changed)
