@@ -33,11 +33,13 @@ try:
 except ImportError:
     from .ui_examples_util import UIExample, show_ul_error
 
-board_resolution = 65536
-board_voltage_range = 10
+
+board_resolution = 4096
+board_voltage_range = 4
 board_ramping_analog_channel = 1
 ramp_target_voltage = 2
 ramp_start_voltage = 0
+inverse_display_rate = 4
 
 
 class DAQ_AO1_Ramping(UIExample):
@@ -74,7 +76,7 @@ class DAQ_AO1_Ramping(UIExample):
         self.board_ramping_analog_channel = analog_channel
         self.ramp_start_voltage = start_voltage
         self.ramp_target_voltage = target_voltage
-        self.board_ground_voltage = int(self.board_resolution / 2)  # Mapping the desired voltage (start, end,
+        self.board_ground_voltage = 0  # Mapping the desired voltage (start, end,
         # and ground reference) to the 16-bit analog output pin
 
         # These next 4 lines could be unnecessary, might replace with = None later. These variables are computed again when initializing the board
@@ -133,9 +135,9 @@ class DAQ_AO1_Ramping(UIExample):
         self.ramping_down.clear()
         ul.a_out(self.board_num, self.board_ramping_analog_channel, self.board_voltage_range,
                  self.board_ground_voltage)  # Reset analog output to ground voltage
-
-        ul.d_config_port(self.board_num, DigitalPortType.AUXPORT,
-                         DigitalIODirection.IN)  # configure the digital ports to input mode
+        #
+        # ul.d_config_port(self.board_num, DigitalPortType.AUXPORT,
+        #                  DigitalIODirection.IN)  # configure the digital ports to input mode
 
         # configure the digital ports for reading the pause ramping & hold signal
 
@@ -156,9 +158,9 @@ class DAQ_AO1_Ramping(UIExample):
             self.ramp_target_voltage = float(self.ramp_target_voltage)
 
         if self.step_rate == '':
-            self.step_rate = 0.00001 / (10 / self.board_voltage_range)
+            self.step_rate = 0.00001 / (4 / self.board_voltage_range)
         else:
-            self.step_rate = float(self.step_rate) / (10 / self.board_voltage_range)
+            self.step_rate = float(self.step_rate) / (4 / self.board_voltage_range)
 
         if self.ramp_start_voltage > self.board_voltage_range:
             self.ramp_start_voltage = self.board_voltage_range
@@ -170,13 +172,13 @@ class DAQ_AO1_Ramping(UIExample):
         self.current_step_count = 0
 
         # Compute the stepping rate and range based on user input and display the results as on-screen message
-        self.start_analog_output = int((self.board_resolution / 2) * (
-                self.ramp_start_voltage / self.board_voltage_range) + self.board_ground_voltage)
-        self.target_analog_output = int((self.board_resolution / 2) * (
-                self.ramp_target_voltage / self.board_voltage_range) + self.board_ground_voltage)
+        self.start_analog_output = int((self.board_resolution) * (
+                self.ramp_start_voltage / self.board_voltage_range) + self.board_ground_voltage) #/2 removed
+        self.target_analog_output = int((self.board_resolution) * (
+                self.ramp_target_voltage / self.board_voltage_range) + self.board_ground_voltage) #/2 removed
         self.restart_step_count = self.start_analog_output
         self.current_step_count = self.start_analog_output
-        self.step_delay = (self.board_voltage_range / self.step_rate) / (self.board_resolution / 2)
+        self.step_delay = (self.board_voltage_range / self.step_rate) / (self.board_resolution) #/2 removed
         self.canvas.itemconfigure(self.DAQ_Info_text,
                                   text="DAQ initiated:\nStarting voltage " + str(self.ramp_start_voltage)
                                        + " V\nFinal voltage " + str(self.ramp_target_voltage) + " V\nRamp rate " + str(
@@ -223,7 +225,7 @@ class DAQ_AO1_Ramping(UIExample):
             self.current_voltage = self.board_voltage_range * (
                     (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
             loopCount = loopCount + 1  # used by the display counter, so the displayed voltage value doesn't fluctuate too fast
-            if loopCount % 20 == 0:
+            if loopCount % inverse_display_rate == 0:
                 self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping up\n" + str(
                     round(self.current_voltage, 3)) + " V")
 
@@ -275,7 +277,7 @@ class DAQ_AO1_Ramping(UIExample):
                     (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
             loopCount = loopCount + 1
             self.current_step_count = i  # keep track of the 16-bit count
-            if loopCount % 20 == 0:
+            if loopCount % inverse_display_rate == 0:
                 self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down\n" + str(
                     round(self.current_voltage, 3)) + " V")
             time.sleep(self.step_delay - (time.time() % self.step_delay))  # self synchronizing time delay
@@ -292,6 +294,7 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_down_button["state"] = "normal"
         self.quick_ramp_down_to_button["state"] = "normal"
         self.initiate_board_button["state"] = "normal"
+        self.quick_ramp_up_to_button["state"] = "normal"
         sys.exit()  # exit thread when the ramp is done or asked to stop
 
     def begin_quick_ramping_down(self):
@@ -327,7 +330,7 @@ class DAQ_AO1_Ramping(UIExample):
                     (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
             loopCount = loopCount + 1
             self.current_step_count = i
-            if loopCount % 20 == 0:
+            if loopCount % inverse_display_rate == 0:
                 self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down\n" + str(
                     round(self.current_voltage, 3)) + " V")
             time.sleep(self.short_step_delay - (time.time() % self.short_step_delay))  # self synchronizing time delay
@@ -409,7 +412,7 @@ class DAQ_AO1_Ramping(UIExample):
     def quick_ramp_down_to_loop(self): #the loop that ramps the AO1 voltage down to a user set value at a fairly fast rate
 
         self.short_step_delay = 1 / self.current_step_count  #computing the loop delays and where the loop ends
-        self.down_to_output = int((self.board_resolution / 2) * (
+        self.down_to_output = int((self.board_resolution) * ( #/2 removed
                 self.ramp_down_to / self.board_voltage_range) + self.board_ground_voltage)
         loopCount = 0
         rate = int(round(self.current_voltage * -1)) # negative rate for ramping down
@@ -421,7 +424,7 @@ class DAQ_AO1_Ramping(UIExample):
                     (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
             loopCount = loopCount + 1
             self.current_step_count = i
-            if loopCount % 20 == 0:
+            if loopCount % inverse_display_rate == 0:
                 self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping down\n" + str(
                     round(self.current_voltage, 3)) + " V")
             time.sleep(self.short_step_delay - (time.time() % self.short_step_delay))  # self synchronizing time delay
@@ -446,7 +449,7 @@ class DAQ_AO1_Ramping(UIExample):
     def quick_ramp_up_to_loop(self): #essentially the same structure as above except the rate is now positive
 
         self.short_step_delay = 1 / self.current_step_count
-        self.up_to_output = int((self.board_resolution / 2) * (
+        self.up_to_output = int((self.board_resolution) * (#/2 removed
                 self.ramp_up_to / self.board_voltage_range) + self.board_ground_voltage)
         loopCount = 0
         rate = int(round(self.current_voltage * 4))
@@ -458,7 +461,7 @@ class DAQ_AO1_Ramping(UIExample):
                     (i - self.board_ground_voltage) / (self.board_resolution - self.board_ground_voltage))
             loopCount = loopCount + 1
             self.current_step_count = i
-            if loopCount % 20 == 0:
+            if loopCount % inverse_display_rate == 0:
                 self.canvas.itemconfigure(self.DAQ_State_text, text="Current Status: \nRamping up\n" + str(
                     round(self.current_voltage, 3)) + " V")
             time.sleep(self.short_step_delay - (time.time() % self.short_step_delay))  # self synchronizing time delay
