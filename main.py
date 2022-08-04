@@ -19,6 +19,7 @@ from __future__ import absolute_import, division, print_function
 import sys
 import threading
 import time
+import tkinter
 import tkinter as tk
 from builtins import *  # @UnusedWildImport
 from tkinter import StringVar
@@ -47,6 +48,8 @@ class DAQ_AO1_Ramping(UIExample):
     def __init__(self, resolution, voltage_range, analog_channel, start_voltage, target_voltage, master):
         super(DAQ_AO1_Ramping, self).__init__(master)
         # Declaring a bunch of variables
+        self.board_type = tk.StringVar()
+        self.board_model = "e-1608"
 
         self.up_to_output = None
         self.ramp_up_to = None  # Initialize all the variables, as suggested by Pycharm
@@ -133,6 +136,13 @@ class DAQ_AO1_Ramping(UIExample):
         # zero all the thread control variables and get the ramping threads ready
         self.ramping_up.clear()
         self.ramping_down.clear()
+        self.board_model = self.board_type.get()
+        if self.board_model == "e-1608":
+            self.board_resolution = 65536
+        elif self.board_model == "usb-1208fs":
+            self.board_resolution = 4096
+
+
         ul.a_out(self.board_num, self.board_ramping_analog_channel, self.board_voltage_range,
                  self.board_ground_voltage)  # Reset analog output to ground voltage
         #
@@ -172,13 +182,24 @@ class DAQ_AO1_Ramping(UIExample):
         self.current_step_count = 0
 
         # Compute the stepping rate and range based on user input and display the results as on-screen message
-        self.start_analog_output = int((self.board_resolution) * (
-                self.ramp_start_voltage / self.board_voltage_range) + self.board_ground_voltage) #/2 removed
-        self.target_analog_output = int((self.board_resolution) * (
-                self.ramp_target_voltage / self.board_voltage_range) + self.board_ground_voltage) #/2 removed
-        self.restart_step_count = self.start_analog_output
-        self.current_step_count = self.start_analog_output
-        self.step_delay = (self.board_voltage_range / self.step_rate) / (self.board_resolution) #/2 removed
+        if self.board_model == "e-1608":
+            self.start_analog_output = int((self.board_resolution/2) * (
+                    self.ramp_start_voltage / self.board_voltage_range) + self.board_ground_voltage)
+            self.target_analog_output = int((self.board_resolution/2) * (
+                    self.ramp_target_voltage / self.board_voltage_range) + self.board_ground_voltage)
+            self.restart_step_count = self.start_analog_output
+            self.current_step_count = self.start_analog_output
+            self.step_delay = (self.board_voltage_range / self.step_rate) / (self.board_resolution/2)
+
+        elif self.board_model == "usb-1208fs":
+            self.start_analog_output = int((self.board_resolution) * (
+                    self.ramp_start_voltage / self.board_voltage_range) + self.board_ground_voltage)  # /2 removed
+            self.target_analog_output = int((self.board_resolution) * (
+                    self.ramp_target_voltage / self.board_voltage_range) + self.board_ground_voltage)  # /2 removed
+            self.restart_step_count = self.start_analog_output
+            self.current_step_count = self.start_analog_output
+            self.step_delay = (self.board_voltage_range / self.step_rate) / (self.board_resolution)  # /2 removed
+
         self.canvas.itemconfigure(self.DAQ_Info_text,
                                   text="DAQ initiated:\nStarting voltage " + str(self.ramp_start_voltage)
                                        + " V\nFinal voltage " + str(self.ramp_target_voltage) + " V\nRamp rate " + str(
@@ -203,6 +224,8 @@ class DAQ_AO1_Ramping(UIExample):
         self.initiate_board_button["state"] = "disabled"
         self.quick_ramp_down_to_button["state"] = "disabled"
         self.quick_ramp_up_to_button["state"] = "disabled"
+        self.typeOption1["state"] = "disabled"
+        self.typeOption2["state"] = "disabled"
         self.restart_step_count = self.current_step_count  # keep track of where the ramp started/stopped
 
         self.ramp_up_thread = threading.Thread(target=self.ramp_up_loop)  # begin the normal ramping up thread
@@ -241,6 +264,8 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_down_to_button["state"] = "normal"
         self.initiate_board_button["state"] = "normal"
         self.quick_ramp_up_to_button["state"] = "normal"
+
+
         sys.exit()  # exit thread when the ramp is done or asked to stop
 
 
@@ -267,6 +292,8 @@ class DAQ_AO1_Ramping(UIExample):
         self.initiate_board_button["state"] = "disabled"
         self.quick_ramp_down_to_button["state"] = "disabled"
         self.quick_ramp_up_to_button["state"] = "disabled"
+        self.typeOption1["state"] = "disabled"
+        self.typeOption2["state"] = "disabled"
 
     def ramp_down_loop(self):
 
@@ -295,6 +322,9 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_down_to_button["state"] = "normal"
         self.initiate_board_button["state"] = "normal"
         self.quick_ramp_up_to_button["state"] = "normal"
+        if self.current_voltage < self.ramp_start_voltage + 0.1:
+            self.typeOption1["state"] = "normal"
+            self.typeOption2["state"] = "normal"
         sys.exit()  # exit thread when the ramp is done or asked to stop
 
     def begin_quick_ramping_down(self):
@@ -315,6 +345,8 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_down_to_button["state"] = "disabled"
         self.quick_ramp_up_to_button["state"] = "disabled"
         self.initiate_board_button["state"] = "disabled"
+        self.typeOption1["state"] = "disabled"
+        self.typeOption2["state"] = "disabled"
 
     def quick_ramp_down_loop(self):
 
@@ -350,14 +382,12 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_down_to_button["state"] = "normal"
         self.quick_ramp_up_to_button["state"] = "normal"
         self.initiate_board_button["state"] = "normal"
+        if self.current_voltage < self.ramp_start_voltage + 0.1:
+            self.typeOption1["state"] = "normal"
+            self.typeOption2["state"] = "normal"
         sys.exit()
 
     def quick_ramp_down_to(self):
-        # if self.ramp_up_thread.is_alive():
-        #     self.stop_ramping()
-        #     self.ramping_up.clear()
-        #     time.sleep(1)
-        #     self.ramp_up_thread.join()
 
         self.ramp_down_to = self.ramp_down_to_input_box.get()
 
@@ -382,6 +412,8 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_down_to_button["state"] = "disabled"
         self.quick_ramp_up_to_button["state"] = "disabled"
         self.initiate_board_button["state"] = "disabled"
+        self.typeOption1["state"] = "disabled"
+        self.typeOption2["state"] = "disabled"
 
     def quick_ramp_up_to(self):
 
@@ -408,12 +440,18 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_down_to_button["state"] = "disabled"
         self.quick_ramp_up_to_button["state"] = "disabled"
         self.initiate_board_button["state"] = "disabled"
+        self.typeOption1["state"] = "disabled"
+        self.typeOption2["state"] = "disabled"
 
     def quick_ramp_down_to_loop(self): #the loop that ramps the AO1 voltage down to a user set value at a fairly fast rate
 
         self.short_step_delay = 1 / self.current_step_count  #computing the loop delays and where the loop ends
-        self.down_to_output = int((self.board_resolution) * ( #/2 removed
-                self.ramp_down_to / self.board_voltage_range) + self.board_ground_voltage)
+        if self.board_model == "e-1608":
+            self.down_to_output = int((self.board_resolution/2) * (
+                    self.ramp_down_to / self.board_voltage_range) + self.board_ground_voltage)
+        elif self.board_model == "usb-1208fs":
+            self.down_to_output = int((self.board_resolution) * (  # /2 removed
+                    self.ramp_down_to / self.board_voltage_range) + self.board_ground_voltage)
         loopCount = 0
         rate = int(round(self.current_voltage * -1)) # negative rate for ramping down
         if rate == 0:
@@ -444,13 +482,21 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_down_to_button["state"] = "normal"
         self.quick_ramp_up_to_button["state"] = "normal"
         self.initiate_board_button["state"] = "normal"
+        if self.current_voltage < self.ramp_start_voltage + 0.1:
+            self.typeOption1["state"] = "normal"
+            self.typeOption2["state"] = "normal"
         sys.exit()
 
     def quick_ramp_up_to_loop(self): #essentially the same structure as above except the rate is now positive
 
         self.short_step_delay = 1 / self.current_step_count
-        self.up_to_output = int((self.board_resolution) * (#/2 removed
-                self.ramp_up_to / self.board_voltage_range) + self.board_ground_voltage)
+        if self.board_model == "e-1608":
+            self.up_to_output = int((self.board_resolution/2) * (
+                    self.ramp_up_to / self.board_voltage_range) + self.board_ground_voltage)
+        elif self.board_model == "usb-1208fs":
+            self.up_to_output = int((self.board_resolution) * (  # /2 removed
+                    self.ramp_up_to / self.board_voltage_range) + self.board_ground_voltage)
+
         loopCount = 0
         rate = int(round(self.current_voltage * 4))
         if rate == 0:
@@ -479,6 +525,9 @@ class DAQ_AO1_Ramping(UIExample):
         self.quick_ramp_down_to_button["state"] = "normal"
         self.quick_ramp_up_to_button["state"] = "normal"
         self.initiate_board_button["state"] = "normal"
+        if self.current_voltage < self.ramp_start_voltage + 0.1:
+            self.typeOption1["state"] = "normal"
+            self.typeOption2["state"] = "normal"
         sys.exit()
 
     def quit_program(self):
@@ -486,6 +535,10 @@ class DAQ_AO1_Ramping(UIExample):
         self.ramping_down.clear()
         self.ramp_up_thread.join()
         sys.exit()
+
+    def refresh(self):
+        if self.initiate_board_button["state"] == "normal":
+            self.initiate_board()
 
 
     def selected_device_changed(self, *args):  # @UnusedVariable
@@ -516,8 +569,7 @@ class DAQ_AO1_Ramping(UIExample):
         '''Create the tkinter UI'''
         main_frame = tk.Frame(self, height=300, width=300)
         main_frame.pack(fill=tk.X, anchor=tk.NW)
-        # main_frame.pack_propagate(0)
-        # main_frame.place(height=1000, width=500)
+
         discover_button = tk.Button(main_frame)
         discover_button["text"] = "Discover DAQ Devices"
         discover_button["command"] = self.discover_devices
@@ -634,6 +686,16 @@ class DAQ_AO1_Ramping(UIExample):
         self.ramp_down_to_volt_text.place(x=235, y=243)
         self.ramp_up_to_volt_text = tk.Label(results_group, text="Volts")
         self.ramp_up_to_volt_text.place(x=235, y=122)
+
+
+
+
+        self.typeOption1 = tk.ttk.Radiobutton(self.canvas, text="E-1608", variable=self.board_type, value="e-1608", command=self.refresh)
+        self.typeOption1.place(x=305, y=155)
+        self.typeOption2 = tk.ttk.Radiobutton(self.canvas, text="USB-1208FS", variable=self.board_type, value="usb-1208fs", command=self.refresh)
+        self.typeOption2.place(x=305, y=175)
+        self.board_type.set("e-1608")
+
 
 
         self.start_voltage_text = self.canvas.create_text(230, 30, text="Starting Voltage (0-10V)", fill="black",
